@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 )
 
@@ -21,12 +22,12 @@ func (s ParcelStore) Add(p Parcel) (int, error) {
 		sql.Named("address", p.Address),
 		sql.Named("created_at", p.CreatedAt))
 	if err != nil {
-		fmt.Println(err)
+		return 0, err
 	}
 	// верните идентификатор последней добавленной записи
 	count, err := res.LastInsertId()
 	if err != nil {
-		fmt.Println(err)
+		return 0, err
 	}
 	return int(count), nil
 }
@@ -53,7 +54,6 @@ func (s ParcelStore) GetByClient(client int) ([]Parcel, error) {
 	// здесь из таблицы может вернуться несколько строк
 	rows, err := s.db.Query("SELECT * FROM parcel WHERE client = :client", sql.Named("client", client))
 	if err != nil {
-		fmt.Println(err)
 		return res, err
 	}
 	defer rows.Close()
@@ -63,7 +63,10 @@ func (s ParcelStore) GetByClient(client int) ([]Parcel, error) {
 		var str Parcel
 		err = rows.Scan(&str.Number, &str.Client, &str.Status, &str.Address, &str.CreatedAt)
 		if err != nil {
-			fmt.Println(err)
+			return res, err
+		}
+		err = rows.Err()
+		if err != nil {
 			return res, err
 		}
 		res = append(res, str)
@@ -93,7 +96,7 @@ func (s ParcelStore) SetAddress(number int, address string) error {
 		return err
 	}
 
-	if status == "registered" {
+	if status == ParcelStatusRegistered {
 		_, err := s.db.Exec("UPDATE parcel SET address = :address WHERE number = :number",
 			sql.Named("address", address),
 			sql.Named("number", number))
@@ -101,7 +104,8 @@ func (s ParcelStore) SetAddress(number int, address string) error {
 			return err
 		}
 	} else {
-		fmt.Println("Адресс нельзя поменять")
+		err1 := errors.New("адресс нельзя поменять")
+		return err1
 	}
 	return nil
 }
@@ -116,13 +120,15 @@ func (s ParcelStore) Delete(number int) error {
 	if err != nil {
 		return err
 	}
-	if status == "registered" {
+	if status == ParcelStatusRegistered {
 		_, err = s.db.Exec("DELETE FROM parcel WHERE number = :number", sql.Named("number", number))
 		if err != nil {
 			return err
 		}
 	} else {
-		fmt.Println("Отменить посылку нельзя")
+		err1 := errors.New("отменить посылку нельзя")
+		return err1
+
 	}
 	return nil
 }
